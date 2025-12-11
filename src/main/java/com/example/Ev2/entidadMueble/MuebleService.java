@@ -12,6 +12,9 @@ public class MuebleService {
     @Autowired
     private MuebleRepository muebleRepository;
 
+    @Autowired
+    private VariacionRepository variacionRepository;
+
     public Mueble crearMueble(Mueble mueble) {
         return muebleRepository.save(mueble);
     }
@@ -52,9 +55,10 @@ public class MuebleService {
     }
 
     public Mueble agregarVariacion(Long idMueble, Variacion variacion) {
-    return muebleRepository.findById(idMueble).map(mueble -> {
-        mueble.agregarVariacion(variacion);
-        return muebleRepository.save(mueble);
-    }).orElse(null);
-}
+        return muebleRepository.findById(idMueble).map(mueble -> {
+            variacion.setMueble(mueble);
+            variacionRepository.save(variacion);
+            return mueble;
+        }).orElseThrow(() -> new RuntimeException("Mueble no encontrado con ID: " + idMueble));
+    }
 }

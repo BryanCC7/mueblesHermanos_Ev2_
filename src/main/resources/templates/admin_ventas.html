@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Admin | Ventas</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">PANEL GERENCIAL</div>
+        <div class="nav-links">
+            <a href="/">Ver Tienda</a>
+            <a href="/admin/muebles">Inventario</a>
+            <a href="/admin/ventas" class="active">Ventas</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="page-title">Historial de Ventas</h2>
+
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th># Cotización</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="venta : ${ventas}">
+                    <td th:text="${venta.id_cotizacion}"></td>
+                    <td th:text="${venta.fecha_creacion}"></td>
+                    <td>
+                        <span th:text="${venta.estado}" 
+                              th:style="${venta.estado == 'VENDIDA' ? 'color:green; font-weight:bold' : 'color:orange'}">
+                        </span>
+                    </td>
+                    <td th:text="'$' + ${venta.total_venta}"></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div th:if="${#lists.isEmpty(ventas)}" style="text-align:center; padding:2rem; color:#888;">
+            No hay registros de ventas aún.
+        </div>
+    </div>
+</body>
+</html>

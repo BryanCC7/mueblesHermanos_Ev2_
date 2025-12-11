@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Mueblería Artesanal | Catálogo</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    
+    <nav class="navbar">
+        <div class="brand">MUEBLERÍA <span style="font-weight:300">ARTESANAL</span></div>
+        <div class="nav-links">
+            <a href="javascript:void(0)" onclick="toggleCart()" style="position: relative;">
+                <i class="fa-solid fa-shopping-cart"></i> Mi Carrito
+                <span id="badge-count" style="background:var(--accent); color:white; border-radius:50%; padding:2px 6px; font-size:0.7rem; position:absolute; top:-5px; right:-10px; display:none;">0</span>
+            </a>
+            <a href="/admin/muebles" style="margin-left: 30px; opacity: 0.7;">Gerencia</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="page-title">Nuestra Colección</h1>
+        
+        <div class="grid-catalog">
+            <div th:each="mueble : ${muebles}" class="mueble-card">
+                <div class="card-img" th:text="${#strings.substring(mueble.nombre_mueble,0,1)}">M</div>
+                <div class="card-body">
+                    <div style="display:flex; justify-content:space-between;">
+                        <h3 th:text="${mueble.nombre_mueble}" style="margin:0;">Silla</h3>
+                        <span th:if="${mueble.stock > 0}" class="stock-badge stock-ok" th:text="'Stock: ' + ${mueble.stock}"></span>
+                        <span th:unless="${mueble.stock > 0}" class="stock-badge">Agotado</span>
+                    </div>
+                    
+                    <p style="color:#777; font-size:0.9em; margin-top:5px;" th:text="${mueble.material}"></p>
+                    <span class="price-tag" th:id="'price-' + ${mueble.id_mueble}" th:text="'$' + ${mueble.precio_base}"></span>
+
+                    <div style="margin: 15px 0;">
+                        <select th:id="'var-' + ${mueble.id_mueble}" class="form-control" onchange="updatePrice(this)" th:data-base="${mueble.precio_base}">
+                            <option value="" data-extra="0">Estándar</option>
+                            <option th:each="v : ${mueble.variaciones}" 
+                                    th:value="${v.id_variacion}" 
+                                    th:text="${v.nombre + ' (+$' + v.precio_extra + ')'}"
+                                    th:data-extra="${v.precio_extra}"
+                                    th:data-name="${v.nombre}">
+                            </option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%" 
+                            th:onclick="addToCart([[${mueble.id_mueble}]], [[${mueble.nombre_mueble}]], [[${mueble.precio_base}]], [[${mueble.stock}]])"
+                            th:disabled="${mueble.stock <= 0}">
+                        Agregar al Carrito
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cart-overlay" onclick="toggleCart()"></div>
+    <div class="cart-sidebar" id="sidebar">
+        <div class="cart-header">
+            <h3 style="margin:0">Tu Pedido</h3>
+            <span onclick="toggleCart()" style="cursor:pointer; font-size:1.5rem;">&times;</span>
+        </div>
+        <div class="cart-body" id="cart-items-container">
+            <p style="text-align:center; color:#999; margin-top:50px;">Tu carrito está vacío.</p>
+        </div>
+        <div class="cart-footer">
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.2rem; margin-bottom:1rem;">
+                <span>Total:</span>
+                <span id="cart-total">$0</span>
+            </div>
+            <button class="btn btn-accent" style="width:100%; padding:1rem;" onclick="processCheckout()">
+                CONFIRMAR COMPRA
+            </button>
+        </div>
+    </div>
+
+    <div id="success-modal" class="success-modal">
+        <div class="success-content">
+            <span class="success-icon"><i class="fa-solid fa-circle-check"></i> &#10003;</span>
+            <h2 style="color:var(--primary)">¡Compra Exitosa!</h2>
+            <p>Se ha generado la orden de venta y descontado el stock.</p>
+            <div style="background:#f5f5f5; padding:10px; margin:15px 0; border-radius:8px;">
+                <strong>ID Venta:</strong> <span id="success-id">#000</span><br>
+                <strong>Total:</strong> <span id="success-total">$0</span>
+            </div>
+            <button class="btn btn-primary" onclick="window.location.reload()">Seguir Comprando</button>
+        </div>
+    </div>
+
+    <script>
+        let cart = [];
+
+        // 1. Abrir/Cerrar Sidebar
+        function toggleCart() {
+            document.querySelector('.cart-overlay').classList.toggle('active');
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        // 2. Actualizar precio visual en tarjeta
+        function updatePrice(select) {
+            const base = parseFloat(select.getAttribute('data-base'));
+            const option = select.options[select.selectedIndex];
+            const extra = parseFloat(option.getAttribute('data-extra'));
+            const id = select.id.split('-')[1];
+            document.getElementById('price-' + id).innerText = '$' + (base + extra);
+        }
+
+        // 3. Agregar al array y renderizar
+        function addToCart(id, nombre, precioBase, maxStock) {
+            const select = document.getElementById('var-' + id);
+            let varId = null;
+            let varNombre = "Estándar";
+            let precioExtra = 0;
+
+            if (select.value) {
+                varId = parseInt(select.value);
+                const option = select.options[select.selectedIndex];
+                varNombre = option.getAttribute('data-name');
+                precioExtra = parseFloat(option.getAttribute('data-extra'));
+            }
+
+            // Validar si ya superó el stock en el carrito (Validación simple)
+            const currentQty = cart.filter(i => i.muebleId === id).length;
+            if (currentQty >= maxStock) {
+                alert("No puedes agregar más unidades de las que hay en stock.");
+                return;
+            }
+
+            cart.push({
+                muebleId: id,
+                variacionId: varId,
+                cantidad: 1,
+                // Datos visuales
+                _nombre: nombre,
+                _varNombre: varNombre,
+                _precio: precioBase + precioExtra
+            });
+
+            renderCart();
+            
+            // Abrir el carrito automáticamente para dar feedback
+            if(!document.getElementById('sidebar').classList.contains('active')) {
+                toggleCart();
+            }
+        }
+
+        // 4. Dibujar el carrito en el HTML
+        function renderCart() {
+            const container = document.getElementById('cart-items-container');
+            const totalSpan = document.getElementById('cart-total');
+            const badge = document.getElementById('badge-count');
+
+            // Badge del navbar
+            badge.innerText = cart.length;
+            badge.style.display = cart.length > 0 ? 'block' : 'none';
+
+            if (cart.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#999; margin-top:50px;">Tu carrito está vacío.</p>';
+                totalSpan.innerText = "$0";
+                return;
+            }
+
+            let html = '';
+            let total = 0;
+
+            cart.forEach((item, index) => {
+                total += item._precio;
+                html += `
+                    <div class="cart-item">
+                        <div class="cart-item-info">
+                            <h4>${item._nombre}</h4>
+                            <p>${item._varNombre}</p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <strong>$${item._precio}</strong>
+                            <button class="btn-remove" onclick="removeItem(${index})">&times;</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            totalSpan.innerText = '$' + total;
+        }
+
+        function removeItem(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        // 5. Proceso de Venta (Backend)
+        async function processCheckout() {
+            if (cart.length === 0) return;
+
+            const btn = document.querySelector('.btn-accent');
+            const originalText = btn.innerText;
+            btn.innerText = "Procesando...";
+            btn.disabled = true;
+
+            try {
+                // Paso A: Crear Cotización
+                const resCotizacion = await fetch('/cotizaciones', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(cart)
+                });
+                
+                if (!resCotizacion.ok) throw new Error("Error creando cotización");
+                const cotizacion = await resCotizacion.json();
+
+                // Paso B: Confirmar Venta (Descontar Stock)
+                const resConfirmar = await fetch(`/cotizaciones/${cotizacion.id_cotizacion}/confirmar`, {
+                    method: 'POST'
+                });
+
+                if (!resConfirmar.ok) {
+                    const errorMsg = await resConfirmar.text();
+                    alert("Error: " + errorMsg); // Aquí sí dejamos un alert de error por seguridad
+                } else {
+                    // ÉXITO TOTAL: Mostrar Modal Bonito
+                    document.getElementById('success-id').innerText = '#' + cotizacion.id_cotizacion;
+                    document.getElementById('success-total').innerText = '$' + cotizacion.total_venta;
+                    
+                    // Cerrar sidebar y mostrar modal
+                    toggleCart();
+                    document.getElementById('success-modal').style.display = 'flex';
+                    
+                    cart = []; // Limpiar memoria
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Ocurrió un error inesperado.");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

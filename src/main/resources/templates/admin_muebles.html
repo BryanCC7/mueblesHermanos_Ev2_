@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Admin | Inventario</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">PANEL GERENCIAL</div>
+        <div class="nav-links">
+            <a href="/">Ver Tienda</a>
+            <a href="/admin/muebles" class="active">Inventario</a>
+            <a href="/admin/ventas">Ventas</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Gestión de Muebles</h2>
+            <button class="btn btn-primary" onclick="openModal('modal-mueble')">+ Nuevo Mueble</button>
+        </div>
+
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Precio Base</th>
+                    <th>Stock</th>
+                    <th>Variaciones</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="m : ${muebles}">
+                    <td th:text="${m.id_mueble}">1</td>
+                    <td th:text="${m.nombre_mueble}">Mesa</td>
+                    <td th:text="${m.tipo}">Comedor</td>
+                    <td th:text="'$' + ${m.precio_base}">100</td>
+                    <td th:text="${m.stock}">5</td>
+                    <td>
+                        <span th:each="v : ${m.variaciones}" th:text="${v.nombre} + ', '"></span>
+                        <button class="btn btn-sm btn-accent" th:onclick="openVariacionModal([[${m.id_mueble}]])">+</button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="alert('Funcionalidad de editar pendiente de conectar')">Editar</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="modal-mueble" class="modal" onclick="if(event.target === this) this.style.display='none'">
+        <div class="modal-content">
+            <h3>Registrar Mueble</h3>
+            <div class="form-group"><label>Nombre</label><input id="new-nombre" type="text"></div>
+            <div class="form-group"><label>Tipo</label><input id="new-tipo" type="text"></div>
+            <div class="form-group"><label>Material</label><input id="new-material" type="text"></div>
+            <div class="form-group"><label>Tamaño</label><input id="new-tamano" type="text"></div>
+            <div class="form-group"><label>Precio Base</label><input id="new-precio" type="number"></div>
+            <div class="form-group"><label>Stock Inicial</label><input id="new-stock" type="number"></div>
+            <button class="btn btn-primary" onclick="guardarMueble()">Guardar</button>
+        </div>
+    </div>
+
+    <div id="modal-variacion" class="modal" onclick="if(event.target === this) this.style.display='none'">
+        <div class="modal-content">
+            <h3>Agregar Variación</h3>
+            <input type="hidden" id="var-mueble-id">
+            <div class="form-group"><label>Nombre Variación (Ej: Roble, Ruedas)</label><input id="var-nombre" type="text"></div>
+            <div class="form-group"><label>Precio Extra ($)</label><input id="var-precio" type="number"></div>
+            <button class="btn btn-accent" onclick="guardarVariacion()">Agregar</button>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        
+        function openVariacionModal(idMueble) {
+            document.getElementById('var-mueble-id').value = idMueble;
+            openModal('modal-variacion');
+        }
+
+        async function guardarMueble() {
+            const data = {
+                nombre_mueble: document.getElementById('new-nombre').value,
+                tipo: document.getElementById('new-tipo').value,
+                material: document.getElementById('new-material').value,
+                tamano: document.getElementById('new-tamano').value,
+                precio_base: parseFloat(document.getElementById('new-precio').value),
+                stock: parseInt(document.getElementById('new-stock').value),
+                estado: "Activo"
+            };
+
+            await fetch('/muebles', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            window.location.reload();
+        }
+
+        // POST /muebles/{id}/variaciones (Necesitamos implementar este endpoint o usar uno genérico)
+        // NOTA: Como en tu MuebleController no vi el endpoint especifico para variaciones anidadas, 
+        // asumiré que necesitas agregarlo al backend o hacerlo aqui.
+        // Haremos un truco: Usar el endpoint de crear variación si existe, o agregarlo al MuebleController.
+        // **IMPORTANTE**: Necesitas agregar este endpoint en tu MuebleController:
+        /*
+           @PostMapping("/{id}/variaciones")
+           public void agregarVariacion(@PathVariable Long id, @RequestBody Variacion var) {
+               Mueble m = service.obtener(id);
+               var.setMueble(m);
+               variacionRepo.save(var);
+           }
+        */
+        async function guardarVariacion() {
+            const id = document.getElementById('var-mueble-id').value;
+            const data = {
+                nombre: document.getElementById('var-nombre').value,
+                precio_extra: parseFloat(document.getElementById('var-precio').value)
+            };
+            
+            await fetch(`/muebles/${id}/variaciones`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            window.location.reload();
+        }
+    </script>
+</body>
+</html>
